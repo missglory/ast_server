@@ -18,6 +18,9 @@ except FileNotFoundError:
 # Read lines from stdin, and for each one, check if it's in the set of lines from the file
 for i, line in enumerate(sys.stdin):
     line = line.strip()
-    if line in lines:
-        print(f"{line};{filename}:{i+1}")
+    if ii, lf in enumerate(lines):
+        if line in lf:
+            print(f"{line} > {filename}:{ii+1}")
+            break
+    sys.stderr.write(f"{line} > {filename}:{-1}")
 
