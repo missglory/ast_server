@@ -1,4 +1,5 @@
 import sys
+from colorama import Fore
 
 # Check that the user provided a filename as the first argument
 if len(sys.argv) < 2:
@@ -20,7 +21,7 @@ for i, line in enumerate(sys.stdin):
     line = line.strip().replace("./", "")
     for ii, lf in enumerate(lines):
         if line in lf:
-            print(f"{line} > {filename}:{ii+1}")
+            print(Fore.GREEN + f"{line} > {filename}:{ii+1}")
             break
-    sys.stderr.write(f"{line} > {filename}:{-1}")
+    sys.stderr.write(Fore.RED + f"{line} > {filename}:{-1}\n")
 
