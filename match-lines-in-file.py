@@ -17,8 +17,8 @@ except FileNotFoundError:
 
 # Read lines from stdin, and for each one, check if it's in the set of lines from the file
 for i, line in enumerate(sys.stdin):
-    line = line.strip()
-    if ii, lf in enumerate(lines):
+    line = line.strip().replace("./", "")
+    for ii, lf in enumerate(lines):
         if line in lf:
             print(f"{line} > {filename}:{ii+1}")
             break
