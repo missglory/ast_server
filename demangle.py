@@ -3,22 +3,18 @@ import subprocess
 import json
 import concurrent.futures
 import cxxfilt
+import threading
+import multiprocessing
 
 def get_demangled_symbols(obj_path):
-    try:
-        # Run the `objdump -t` command to extract symbol names from the object file
-        objdump_output = subprocess.check_output(['objdump', '-t', obj_path])
-    except subprocess.CalledProcessError:
-        return []
+    # Run the objdump command to extract the symbol names from the object file
+    objdump_output = subprocess.check_output(['objdump', '-t', obj_path])
 
-    # Decode the output and split it into lines
-    objdump_lines = objdump_output.decode().splitlines()
-
-    # Extract the symbol names and demangle them using the C++ ABI library
+    # Parse the objdump output and extract the symbol names
     symbols = []
-    for line in objdump_lines:
+    for line in objdump_output.decode().splitlines():
         parts = line.split()
-        if len(parts) >= 7 and parts[1] in ['F', 'f', 'O', 'o', 'G', 'g', 'C', 'c']:
+        if len(parts) >= 3 and parts[1] in ['F', 'f', 'O', 'o', 'G', 'g', 'C', 'c', 'T', 't', '.text']:
             symbol_name = parts[-1]
             try:
                 demangled_name = cxxfilt.demangle(symbol_name)
@@ -26,22 +22,31 @@ def get_demangled_symbols(obj_path):
             except cxxfilt.InvalidName:
                 symbols.append(symbol_name)
 
-    return symbols
+    return obj_path, symbols
 
 def get_all_symbols(obj_paths):
+    # Use a ThreadPoolExecutor to run the `get_demangled_symbols` function concurrently
     all_symbols = {}
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = [executor.submit(get_demangled_symbols, obj_path) for obj_path in obj_paths]
-        for i, future in enumerate(concurrent.futures.as_completed(futures)):
-            symbols = future.result()
-            all_symbols[obj_paths[i]] = {'deps': symbols}
-
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=40) as executor:
+        # futures = [executor.submit(get_demangled_symbols, obj_path) for obj_path in obj_paths]
+        # concurrent.futures.wait(futures)
+        # for i, future in enumerate(concurrent.futures.as_completed(futures)):
+            # obj_path = obj_paths[i]
+            # symbols = future.result()
+            # all_symbols[obj_path] = {'deps': symbols}
+    with multiprocessing.Pool(multiprocessing.cpu_count()) as pool:
+        for res in pool.map(get_demangled_symbols, obj_paths):
+            if len(res[1]):
+                all_symbols[res[0]] = {'deps': res[1]}
     return all_symbols
 
 def store_symbols_to_json(obj_paths, json_path):
     symbols = get_all_symbols(obj_paths)
     with open(json_path, 'w') as f:
         # Write the symbols to a JSON file
+        for k in symbols.keys():
+            if 'longhands' in k:
+                print(len(symbols[k]["deps"]))
         json.dump(symbols, f, indent=4)
 
 # Example usage
