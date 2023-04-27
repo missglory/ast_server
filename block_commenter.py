@@ -169,10 +169,10 @@ def handleFile(stdscr, regex_input, file_path):
     with open(file_path, 'w') as f:
         f.writelines(new_content)
 
-    print_with_color(stdscr, f"\n{Fore.MAGENTA}File {file_path} updated! Press any key to continue", None, False)
-    # print(lns)
-    stdscr.refresh()
-    stdscr.getch()
+    if match_count > 0:
+      print_with_color(stdscr, f"\n{Fore.MAGENTA}File {file_path} updated! Press any key to continue", None, False)
+      stdscr.refresh()
+      stdscr.getch()
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
