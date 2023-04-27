@@ -84,13 +84,41 @@ def handleFile(stdscr, regex_input, file_path):
     pattern = re.compile(regex_input)
     new_content = []
 
+    inside_comment = False
     i = 0
+    lns = []
+    match_count = 0
+    for line in content:
+        if "*/" in line.strip():
+            inside_comment = False
+        elif line.strip().startswith("/*"):
+            inside_comment = True
+        if inside_comment:
+            i += 1
+            new_content.append(line)
+            continue
+        match = pattern.search(line)
+        if match:
+            match_count += 1
+    cur_match = 0
+
     while i < len(content):
         line = content[i]
+        if "*/" in line.strip():
+            inside_comment = False
+        elif "/*" in line.strip():
+            inside_comment = True
+        if inside_comment:
+            i += 1
+            new_content.append(line)
+            continue
         match = pattern.search(line)
+        lns.append(i)
 
         if match:
             stdscr.clear()  # Clear previous output
+            cur_match += 1
+            print_with_color(stdscr, f"{Fore.RED}File: {Fore.WHITE}{file_path}{Fore.RED}. \nLine: {Fore.WHITE} {i} / {len(content)}\nMatch: {cur_match} / {match_count}\n\n", None, False)
 
             print_with_color(stdscr, f"{Fore.WHITE}Match found:\n", None, False)
             print_with_color(stdscr, line, regex_input, False)
@@ -115,7 +143,7 @@ def handleFile(stdscr, regex_input, file_path):
                 stdscr.addstr("\n")
 
             stdscr.refresh()
-            prompt_line = f"{Fore.WHITE}Comment out this method/declaration? (y/n):"
+            prompt_line = f"\n{Fore.WHITE}Comment out this block? (y/n):"
             print_with_color(stdscr, prompt_line, None, False)
 
             # stdscr.addstr(len(lines)+1, 0, "Comment out this method/declaration? (y/n):")
@@ -142,6 +170,7 @@ def handleFile(stdscr, regex_input, file_path):
         f.writelines(new_content)
 
     print_with_color(stdscr, f"\n{Fore.MAGENTA}File {file_path} updated! Press any key to continue", None, False)
+    # print(lns)
     stdscr.refresh()
     stdscr.getch()
 
