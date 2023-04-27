@@ -4,10 +4,10 @@ import curses
 import sys
 from pygments import highlight
 from pygments.lexers import get_lexer_by_name
-from pygments.formatters import TerminalFormatter
+from pygments.formatters import Terminal256Formatter
 from colorama import init, Fore, Style
 
-# init()
+init()
 
 def find_closing_bracket(content, start_line):
     count = 0
@@ -19,113 +19,60 @@ def find_closing_bracket(content, start_line):
             return i
     return len(content) - 1
 
-def find_closing_semicolon(content, start_line):
+def find_symbol(content, start_line, symbol=';'):
     for i in range(start_line, len(content)):
         line = content[i]
-        if ';' in line:
+        if symbol in line:
             return i
     return len(content) - 1
+
+def print_with_color(stdscr, line, match_regex = None, colorize=True):
+    highlighted_line = line
+    if colorize: highlighted_line = highlight(line, get_lexer_by_name('cpp'), Terminal256Formatter(style='native')).strip()
+    parts = re.split(r'\x1b\[[0-9;]*m', highlighted_line)  # Split highlighted line by escape sequences
+    color_sequence_parts = re.findall(r'\x1b\[[0-9;]*m', highlighted_line)  # Find color sequences
+    color_sequence_index = 0
+
+    for part in parts:
+        if color_sequence_index < len(color_sequence_parts):
+            color_code = color_sequence_parts[color_sequence_index]
+            color_pair = get_color_pair(color_code)
+            color_sequence_index += 1
+        if match_regex is not None and not match_regex == '' and not colorize and re.search(match_regex, part):
+             part = Fore.LIGHTGREEN_EX + part + Style.RESET_ALL
+        if len(re.findall(r'\x1b\[[0-9;]*m', part)) > 0:
+            print_with_color(stdscr, part, None, False)
+        else: stdscr.addstr(part, color_pair)
+
+def get_color_pair(color_code):
+    # Remove escape sequence characters
+    color_code = color_code.strip('\x1b[').strip('m')
+    parts = color_code.split(';')
+
+    # Extract foreground color information
+    foreground = int(parts[-1])
+
+    # Check if background color is provided
+    if len(parts) > 1:
+        background = int(parts[-2])
+        return curses.color_pair(foreground + background * 8)
+    
+    return curses.color_pair(foreground)
 
 def main(stdscr, regex_input, file_path):
-    # Clear the screen and initialize variables
-    stdscr.clear()
-    stdscr.refresh()
+    if type(file_path) is list:
+        for f in file_path:
+            handleFile(stdscr, regex_input, f)
+    else:
+        handleFile(stdscr, regex_input, file_path)
 
-    # Read file and find matches
-    with open(file_path, 'r') as f:
-        content = f.readlines()
+def handleFile(stdscr, regex_input, file_path):
+    # Initialize color support for curses
+    curses.start_color()
+    curses.use_default_colors()
+    for i in range(0, curses.COLORS):
+        curses.init_pair(i + 1, i, -1)
 
-    pattern = re.compile(regex_input)
-    new_content = []
-
-    i = 0
-    while i < len(content):
-        line = content[i]
-        match = pattern.search(line)
-
-        if match:
-            closing_bracket = find_closing_bracket(content, i + 1)
-            closing_semicolon = find_closing_semicolon(content, i + 1)
-            stdscr.clear()  # Clear previous output
-            method_lines = content[i:min(closing_bracket, closing_semicolon)]
-            # if '{' in line:
-            # else:
-            #     method_lines = content[i:closing_semicolon+1]
-
-            stdscr.addstr(0, 0, f"{Fore.YELLOW}Match found:\n")
-            # for i, ln in enumerate(method_lines):
-            #     stdscr.addstr(i, 0, f"{line.strip()}{Style.RESET_ALL}\n")
-
-            highlighted_code = highlight('\n'.join(method_lines), get_lexer_by_name('cpp'), TerminalFormatter())
-            stdscr.addstr(1, 0, highlighted_code)
-            stdscr.refresh()
-
-            stdscr.addstr(len(method_lines) + 1, 0, "Comment out this method/declaration? (y/n):")
-            stdscr.refresh()
-
-            while True:
-                ch = stdscr.getch()
-                if ch in [ord('y'), ord('Y'), ord('n'), ord('N')]:
-                    break
-
-            if ch in [ord('y'), ord('Y')]:
-                new_content.append('/*\n')
-                new_content.extend(method_lines)
-                new_content.append(' */\n')
-
-            if '{' in line:
-                i = closing_bracket + 1
-            else:
-                i = closing_semicolon + 1
-        else:
-            new_content.append(line)
-            i += 1
-
-    # Write modified content back to the file
-    with open(file_path, 'w') as f:
-        f.writelines(new_content)
-
-    stdscr.addstr(3, 0, "File updated. Press any key to exit.")
-    stdscr.refresh()
-    stdscr.getch()
-
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python comment_out_cpp.py <regex_pattern> <file_path>")
-        sys.exit(1)
-
-    regex_input = sys.argv[1]
-    file_path = sys.argv[2]
-
-    curses.wrapper(main, regex_input, file_path)
-import re
-import curses
-import sys
-from pygments import highlight
-from pygments.lexers import get_lexer_by_name
-from pygments.formatters import TerminalFormatter
-from colorama import init, Fore, Style
-
-init(autoreset=True)
-
-def find_closing_bracket(content, start_line):
-    count = 0
-    for i in range(start_line, len(content)):
-        line = content[i]
-        count += line.count('{')
-        count -= line.count('}')
-        if count <= 0:
-            return i
-    return len(content) - 1
-
-def find_closing_semicolon(content, start_line):
-    for i in range(start_line, len(content)):
-        line = content[i]
-        if ';' in line:
-            return i
-    return len(content) - 1
-
-def main(stdscr, regex_input, file_path):
     # Clear the screen and initialize variables
     stdscr.clear()
     stdscr.refresh()
@@ -144,20 +91,34 @@ def main(stdscr, regex_input, file_path):
 
         if match:
             stdscr.clear()  # Clear previous output
-            stdscr.addstr(0, 0, f"{Fore.YELLOW}Match found: {line.strip()}{Style.RESET_ALL}\n")
 
-            if '{' in line:
-                closing_bracket = find_closing_bracket(content, i + 1)
+            print_with_color(stdscr, f"{Fore.WHITE}Match found:\n", None, False)
+            print_with_color(stdscr, line, regex_input, False)
+            stdscr.addstr("\n")
+
+            closing_bracket = find_closing_bracket(content, i)
+            opening_bracket = find_symbol(content, i, '{')
+            closing_semicolon = find_symbol(content, i)
+
+            if opening_bracket <= closing_semicolon:
                 method_lines = content[i:closing_bracket+1]
+                i = closing_bracket + 1
             else:
-                closing_semicolon = find_closing_semicolon(content, i + 1)
                 method_lines = content[i:closing_semicolon+1]
+                i = closing_semicolon + 1
 
-            highlighted_code = highlight(''.join(method_lines), get_lexer_by_name('cpp'), TerminalFormatter())
-            stdscr.addstr(1, 0, highlighted_code)
+            # highlighted_code = highlight(''.join(method_lines), get_lexer_by_name('cpp'), Terminal256Formatter(style='native'))
+            # lines = highlighted_code.splitlines()
+
+            for code_line in method_lines:
+                print_with_color(stdscr, code_line, regex_input)
+                stdscr.addstr("\n")
+
             stdscr.refresh()
+            prompt_line = f"{Fore.WHITE}Comment out this method/declaration? (y/n):"
+            print_with_color(stdscr, prompt_line, None, False)
 
-            stdscr.addstr(2, 0, "Comment out this method/declaration? (y/n):")
+            # stdscr.addstr(len(lines)+1, 0, "Comment out this method/declaration? (y/n):")
             stdscr.refresh()
 
             while True:
@@ -172,10 +133,6 @@ def main(stdscr, regex_input, file_path):
             else:
                 new_content.extend(method_lines)
 
-            if '{' in line:
-                i = closing_bracket + 1
-            else:
-                i = closing_semicolon + 1
         else:
             new_content.append(line)
             i += 1
@@ -184,16 +141,15 @@ def main(stdscr, regex_input, file_path):
     with open(file_path, 'w') as f:
         f.writelines(new_content)
 
-    stdscr.addstr(3, 0, "File updated. Press any key to exit.")
+    print_with_color(stdscr, f"\n{Fore.MAGENTA}File {file_path} updated! Press any key to continue", None, False)
     stdscr.refresh()
     stdscr.getch()
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python comment_out_cpp.py <regex_pattern> <file_path>")
+        print("Usage: python comment_out_cpp.py <regex_pattern> <file_path>...")
         sys.exit(1)
 
     regex_input = sys.argv[1]
-    file_path = sys.argv[2]
-
+    file_path = sys.argv[2: len(sys.argv)]
     curses.wrapper(main, regex_input, file_path)
