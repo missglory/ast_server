@@ -21,7 +21,10 @@ def get_ast(node):
         "spelling": node.spelling,
         "location": {
             "line": location.line,
-            "column": location.column
+            "column": location.column,
+            "offset": location.offset,
+            "endLine": node.extent.end.line,
+            "endColumn": node.extent.end.column
         },
         "children": []
     }
@@ -56,5 +59,6 @@ def ast():
 
     return jsonify(ast)
 
+
 if __name__ == "__main__":
-    app.run()
+    app.run(debug = True, port = 5000, host='0.0.0.0')
