@@ -5,6 +5,28 @@ import utils
 from ast_server import get_ast
 
 
+def get_ast(node):
+    location = node.location
+    ast = {
+        "kind": str(node.kind),
+        "spelling": node.spelling,
+        "location": {
+            "line": location.line,
+            "column": location.column,
+            "offset": location.offset,
+            "endLine": node.extent.end.line,
+            "endColumn": node.extent.end.column,
+            "endOffset": node.extent.end.offset
+        },
+        "children": []
+    }
+
+    for child in node.get_children():
+        ast["children"].append(get_ast(child))
+
+    return ast
+
+
 def ast_to_code(node, code):
     # print(node)
 

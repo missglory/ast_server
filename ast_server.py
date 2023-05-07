@@ -11,35 +11,6 @@ clang.cindex.Config.set_library_file("/home/mg/gh/llvm-project/build/lib/libclan
 app = Flask(__name__)
 CORS(app)
 
-def get_ast(node):
-    # ast = {
-    #     "kind": str(node.kind),
-    #     "spelling": node.spelling,
-    #     "children": [],
-    #     ""
-    # }
-    location = node.location
-    ast = {
-        "kind": str(node.kind),
-        "spelling": node.spelling,
-        "location": {
-            "line": location.line,
-            "column": location.column,
-            "offset": location.offset,
-            "endLine": node.extent.end.line,
-            "endColumn": node.extent.end.column,
-            "endOffset": node.extent.end.offset
-        },
-        "children": []
-    }
-
-    for child in node.get_children():
-        ast["children"].append(get_ast(child))
-
-    return ast
-
-
-@app.route("/code_from_ast", methods=["POST"])
 @cross_origin()
 def code_from_ast():
     ast = request.get_json()
@@ -60,7 +31,7 @@ def ast():
     )
 
     root = translation_unit.cursor
-    ast = get_ast(root)
+    ast = ast_parser.get_ast(root)
 
     return jsonify(ast)
 
@@ -81,7 +52,7 @@ def ast_from_file():
     translation_unit = ast_parser.get_translation_unit(path)
     try:
         root = translation_unit.cursor
-        ast = get_ast(root)
+        ast = ast_parser.get_ast(root)
         return jsonify({'contents': ast})
     except:
         return translation_unit
