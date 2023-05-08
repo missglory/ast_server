@@ -1,9 +1,6 @@
-import clang
+import clang.cindex
 from flask import jsonify
 import utils
-
-from ast_server import get_ast
-
 
 def get_ast(node):
     location = node.location
@@ -66,7 +63,7 @@ def get_translation_unit(path: str):
 
     index = clang.cindex.Index.create()
     translation_unit = index.parse(
-        path=path, args=["-std=c++17", "-x"]
+        path, ["-std=c++17", "-x"]
     )
 
     return translation_unit
