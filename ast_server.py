@@ -29,7 +29,7 @@ def get_ast(node, file, pass_flag=False):
         ast = {
             "kind": str(node.kind),
             "spelling": node.spelling,
-            "type": node.type.spelling,
+            "nodeType": node.type.spelling,
             "location": {
                 "line": location.line,
                 "column": location.column,
