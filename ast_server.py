@@ -8,37 +8,46 @@ import utils
 from flask_cors import CORS, cross_origin
 
 # Set the path to the libclang library file
-clang.cindex.Config.set_library_file("/home/mg/gh/llvm-project/build/lib/libclang.so")
+clang.cindex.Config.set_library_file("/home/mg/clang-llvm/rel-build/lib/libclang.so")
 
 app = Flask(__name__)
 CORS(app)
 
-def get_ast(node):
+def get_ast(node, file, pass_flag=False):
     # ast = {
     #     "kind": str(node.kind),
     #     "spelling": node.spelling,
     #     "children": [],
     #     ""
     # }
-    location = node.location
-    ast = {
-        "kind": str(node.kind),
-        "spelling": node.spelling,
-        "location": {
-            "line": location.line,
-            "column": location.column,
-            "offset": location.offset,
-            "endLine": node.extent.end.line,
-            "endColumn": node.extent.end.column,
-            "endOffset": node.extent.end.offset
-        },
-        "children": []
-    }
+    try:
+        location = node.location
+        print(location.file)
+        if not (location.file is None or location.file.name == file):
+        # if not (location.file.name == file or pass_flag):
+            return None
+        ast = {
+            "kind": str(node.kind),
+            "spelling": node.spelling,
+            "type": node.type.spelling,
+            "location": {
+                "line": location.line,
+                "column": location.column,
+                "offset": location.offset,
+                "endLine": node.extent.end.line,
+                "endColumn": node.extent.end.column,
+                "endOffset": node.extent.end.offset
+            },
+            "children": []
+        }
 
-    for child in node.get_children():
-        ast["children"].append(get_ast(child))
+        for child in node.get_children():
+            ch = get_ast(child, file)
+            if not ch is None: ast["children"].append(ch)
 
-    return ast
+        return ast
+    except Exception as e:
+        return None
 
 
 @app.route("/code_from_ast", methods=["POST"])
@@ -85,14 +94,14 @@ def ast_from_file():
         return jsonify(path)
     path = path[0]
     index = clang.cindex.Index.create()
-    args=["-std=c++17", "-x", "c++"]
+    args=["-std=c++17", "-x", "c++", "-I/home/mg/chromium/src/"]
     # args = include_args
     # args=[]
     translation_unit = index.parse(
         path=path, args=args
     )
     root = translation_unit.cursor
-    ast = get_ast(root)
+    ast = get_ast(root, path, True)
     return jsonify({'contents': ast})
 
 @app.route('/tokenize', methods=['POST'])
