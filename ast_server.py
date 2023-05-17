@@ -1,11 +1,14 @@
 from collections import Counter
 import re
+import subprocess
 from flask import Flask, request, jsonify
 import clang.cindex
 import os
 import ast_parser
 import utils
 from flask_cors import CORS, cross_origin
+import shlex
+# from sh import git
 
 # Set the path to the libclang library file
 clang.cindex.Config.set_library_file("/home/mg/clang-llvm/rel-build/lib/libclang.so")
@@ -22,7 +25,7 @@ def get_ast(node, file, pass_flag=False):
     # }
     try:
         location = node.location
-        print(location.file)
+        # print(location.file)
         if not (location.file is None or location.file.name == file):
         # if not (location.file.name == file or pass_flag):
             return None
@@ -84,27 +87,53 @@ include_dirs = [
 # Convert the include directories into Clang-compatible arguments
 include_args = [f"-I{include_dir}" for include_dir in include_dirs]
 
-
-@app.route("/ast_from_file", methods=["POST"])
+@app.route("/ast_from_file", methods=["GET"])
 @cross_origin()
 def ast_from_file():
-    path = request.data.decode("utf-8")
-    path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
+    path = request.args.get('file')
+    commit = request.args.get('commit', 'HEAD')
+    repo_path = "/home/mg/chromium/src/third_party/blink"
+
+    path = utils.find_files_with_name(repo_path, path)
     if len(path) > 1 or len(path) == 0:
         return jsonify(path)
-    path = path[0]
-    index = clang.cindex.Index.create()
-    args=["-std=c++17", "-x", "c++", "-I/home/mg/chromium/src/"]
-    # args = include_args
-    # args=[]
-    translation_unit = index.parse(
-        path=path, args=args
-    )
-    root = translation_unit.cursor
-    ast = get_ast(root, path, True)
-    return jsonify({'contents': ast})
+
+    abs_path = path[0]
+    path = "./" + os.path.relpath(path[0], repo_path)
+    latest_commit = subprocess.check_output(
+        f"cd {repo_path} && git log -n 1 --pretty=format:%H {path}", shell=True
+    ).decode().strip()
+    try:
+        # subprocess.run(
+        #     f"cd {repo_path} && git show {commit}:{path} > {path} && cd -", shell=True, check=True
+        # )
+        # except:
+            # pass
+        command = f"cd {repo_path} && git show {commit}:{path} && cd -"
+        file_contents = subprocess.check_output(command, shell=True).decode('utf-8')
+
+        index = clang.cindex.Index.create()
+        args=["-std=c++17", "-x", "c++", "-I/home/mg/chromium/src/"]
+        # args = include_args
+        # args=[]
+        translation_unit = index.parse(
+            path=abs_path, args=args
+            , unsaved_files=[(abs_path, file_contents)]
+        )
+        root = translation_unit.cursor
+        ast = get_ast(root, abs_path, True)
+        # try:
+        # subprocess.run(
+        #     f"cd {repo_path} && git show {latest_commit}:{path} > {path} && cd -", shell=True, check=True
+        # )
+        # except:
+        #     pass
+        return jsonify({'contents': ast})
+    except:
+        return jsonify({'contents': subprocess.getoutput()})
 
 @app.route('/tokenize', methods=['POST'])
+@cross_origin()
 def tokenize():
     path = request.data.decode("utf-8")
     path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
@@ -140,6 +169,19 @@ def src():
     with open(path, 'r') as file:
         return jsonify({'contents': file.read()})
 
+@app.route('/git', methods=['GET'])
+@cross_origin()
+def git_rev_parse():
+    rev_arg = request.args.get('rev')
+    rev_arg = shlex.quote(rev_arg)
+    repo_dir = "/home/mg/chromium/src/third_party/blink"
+    cmd = f"git -C {repo_dir} rev-parse {rev_arg}"
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    stdout, stderr = process.communicate()
+    if process.returncode == 0:
+        return jsonify({'success': True, 'message': stdout.decode().strip()})
+    else:
+        return jsonify({'success': False, 'message': stderr.decode().strip()}), 400
 
 @app.route('/histogram', methods=['GET'])
 @cross_origin()
