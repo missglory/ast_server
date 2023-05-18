@@ -41,6 +41,7 @@ def get_ast(node, file, pass_flag=False):
                 "endColumn": node.extent.end.column,
                 "endOffset": node.extent.end.offset
             },
+            "offset": location.offset,
             "children": []
         }
 
