@@ -133,42 +133,23 @@ def ast_from_file():
     except:
         return jsonify({'contents': subprocess.getoutput()})
 
-@app.route('/tokenize', methods=['POST'])
-@cross_origin()
-def tokenize():
-    path = request.data.decode("utf-8")
-    path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
-    if len(path) > 1 or len(path) == 0:
-        return jsonify(path)
-    path = path[0]
-    index = clang.cindex.Index.create()
-    args=["-std=c++17", "-x", "c++"]
-    # args = include_args
-    # args=[]
-    tu = index.parse(
-        path=path, args=args
-    )
-    try:
-        tokens = []
-        for token in tu.get_tokens(extent=tu.cursor.extent):
-            tokens.append({'spelling': token.spelling, 'kind': str(token.kind)})
-    except:
-        return tu
-    
-    return jsonify(tokens)
 
-@app.route("/src", methods=["POST"])
+@app.route("/src", methods=["GET"])
 @cross_origin()
 def src():
-    path = request.data.decode("utf-8")
-    path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
+    path = request.args.get('file')
+    commit = request.args.get('commit', 'HEAD')
+    repo_path = "/home/mg/chromium/src/third_party/blink"
+    path = utils.find_files_with_name(repo_path, path)
 
     if len(path) > 1 or len(path) == 0:
         return jsonify(path)
     
-    path = path[0]
-    with open(path, 'r') as file:
-        return jsonify({'contents': file.read()})
+    path = "./" + os.path.relpath(path[0], repo_path)
+    command = f"cd {repo_path} && git show {commit}:{path} && cd -"
+    file_contents = subprocess.check_output(command, shell=True).decode('utf-8')
+    # with open(path, 'r') as file:
+    return jsonify({'contents': file_contents})
 
 @app.route('/git', methods=['GET'])
 @cross_origin()
@@ -207,6 +188,32 @@ def histogram():
     sorted_counts = dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
 
     return jsonify(sorted_counts)
+
+
+@app.route('/tokenize', methods=['POST'])
+@cross_origin()
+def tokenize():
+    path = request.data.decode("utf-8")
+    path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
+    if len(path) > 1 or len(path) == 0:
+        return jsonify(path)
+    path = path[0]
+    index = clang.cindex.Index.create()
+    args=["-std=c++17", "-x", "c++"]
+    # args = include_args
+    # args=[]
+    tu = index.parse(
+        path=path, args=args
+    )
+    try:
+        tokens = []
+        for token in tu.get_tokens(extent=tu.cursor.extent):
+            tokens.append({'spelling': token.spelling, 'kind': str(token.kind)})
+    except:
+        return tu
+    
+    return jsonify(tokens)
+
 
 if __name__ == "__main__":
     app.run(debug = True, port = 5000, host='0.0.0.0')
