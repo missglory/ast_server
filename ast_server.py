@@ -24,7 +24,8 @@ def get_ast(node, file, pass_flag=False):
     #     ""
     # }
     try:
-        location = node.location
+        # location = node.location
+        location = node.extent.start
         # print(location.file)
         if not (location.file is None or location.file.name == file):
         # if not (location.file.name == file or pass_flag):
