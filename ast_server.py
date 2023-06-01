@@ -8,6 +8,7 @@ import ast_parser
 import utils
 from flask_cors import CORS, cross_origin
 import shlex
+from callgrind2json import *
 # from sh import git
 
 # Set the path to the libclang library file
@@ -106,31 +107,43 @@ def ast_from_file():
         f"cd {repo_path} && git log -n 1 --pretty=format:%H {path}", shell=True
     ).decode().strip()
     try:
-        # subprocess.run(
-        #     f"cd {repo_path} && git show {commit}:{path} > {path} && cd -", shell=True, check=True
-        # )
-        # except:
-            # pass
         command = f"cd {repo_path} && git show {commit}:{path} && cd -"
         file_contents = subprocess.check_output(command, shell=True).decode('utf-8')
 
         index = clang.cindex.Index.create()
         args=["-std=c++17", "-x", "c++", "-I/home/mg/chromium/src/"]
-        # args = include_args
-        # args=[]
         translation_unit = index.parse(
             path=abs_path, args=args
             , unsaved_files=[(abs_path, file_contents)]
         )
         root = translation_unit.cursor
         ast = get_ast(root, abs_path, True)
-        # try:
-        # subprocess.run(
-        #     f"cd {repo_path} && git show {latest_commit}:{path} > {path} && cd -", shell=True, check=True
-        # )
-        # except:
-        #     pass
         return jsonify({'contents': ast})
+    except:
+        return jsonify({'contents': subprocess.getoutput()})
+
+
+@app.route("/callgrind", methods=["GET"])
+@cross_origin()
+def callgrind():
+    path = request.args.get('file')
+    commit = request.args.get('commit', 'HEAD')
+    repo_path = "/home/mg/chromium/src/"
+
+    path = utils.find_files_with_name(repo_path, path)
+    if len(path) > 1 or len(path) == 0:
+            return jsonify(path)
+
+    abs_path = path[0]
+    path = "./" + os.path.relpath(path[0], repo_path)
+    try:
+        try:
+            command = f"cd {repo_path} && git show {commit}:{path} && cd -"
+            file_contents = subprocess.check_output(command, shell=True).decode('utf-8')
+        except:
+            file_contents = open(abs_path, 'r').read();
+        callgrind_output = callgrind_to_json(file_contents)
+        return jsonify({'contents': callgrind_output})
     except:
         return jsonify({'contents': subprocess.getoutput()})
 
