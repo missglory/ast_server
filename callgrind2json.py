@@ -1,4 +1,5 @@
 import json
+import argparse
 
 def callgrind_to_json(callgrind_file):
     result = {}
@@ -17,9 +18,17 @@ def callgrind_to_json(callgrind_file):
                 result[function_name]['call_count'] = call_count
     return result
 
-data = callgrind_to_json('your_callgrind_file.out')
-json_data = json.dumps(data, indent=4)
+def main():
+    parser = argparse.ArgumentParser(description='Transform callgrind format to json.')
+    parser.add_argument('callgrind_file', help='The callgrind input file to be converted.')
+    args = parser.parse_args()
 
-with open('output.json', 'w') as json_file:
-    json_file.write(json_data)
+    data = callgrind_to_json(args.callgrind_file)
+    json_data = json.dumps(data)
+
+    with open('output.json', 'w') as json_file:
+        json_file.write(json_data)
+
+if __name__ == "__main__":
+    main()
 
