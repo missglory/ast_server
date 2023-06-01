@@ -141,7 +141,7 @@ def callgrind():
             command = f"cd {repo_path} && git show {commit}:{path} && cd -"
             file_contents = subprocess.check_output(command, shell=True).decode('utf-8')
         except:
-            file_contents = open(abs_path, 'r').read();
+            file_contents = open(abs_path, 'r').read() 
         callgrind_output = callgrind_to_json(file_contents)
         return jsonify({'contents': callgrind_output})
     except:
@@ -170,7 +170,7 @@ def src():
 def git_rev_parse():
     rev_arg = request.args.get('rev')
     rev_arg = shlex.quote(rev_arg)
-    repo_dir = "/home/mg/chromium/src/third_party/blink"
+    repo_dir = "/home/mg/chromium/src"
     cmd = f"git -C {repo_dir} rev-parse {rev_arg}"
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     stdout, stderr = process.communicate()
@@ -183,7 +183,7 @@ def git_rev_parse():
 @cross_origin()
 def histogram():
     path = request.args.get('text')
-    path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
+    path = utils.find_files_with_name("/home/mg/chromium/src/", path)
 
     if len(path) > 1 or len(path) == 0:
         return jsonify(path)
@@ -208,7 +208,7 @@ def histogram():
 @cross_origin()
 def tokenize():
     path = request.data.decode("utf-8")
-    path = utils.find_files_with_name("/home/mg/chromium/src/third_party/blink", path)
+    path = utils.find_files_with_name("/home/mg/chromium/src", path)
     if len(path) > 1 or len(path) == 0:
         return jsonify(path)
     path = path[0]

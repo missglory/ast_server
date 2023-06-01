@@ -3,7 +3,7 @@ import argparse
 import re
 from collections import defaultdict
 
-def callgrind_to_json(callgrind_content):
+def callgrind_to_json(callgrind_content, postprocess = True):
     result = {}
     lines = callgrind_content.split('\n')
     for line in lines:
@@ -18,6 +18,9 @@ def callgrind_to_json(callgrind_content):
         elif line.startswith("calls="):
             call_count = line.split('=')[1].strip()
             result[function_name]['call_count'] = call_count
+    if postprocess:
+        identifier_to_fn_map, identifiers_count = check_unique_identifiers_and_map(result)
+        result = post_process_callgrind_json(result, identifier_to_fn_map=identifier_to_fn_map)
     return result
 
 
@@ -54,6 +57,7 @@ def post_process_callgrind_json(data, identifier_to_fn_map):
         else:
             new_function_name = function_name
         # Check the called function names
+        data[new_function_name]["label"] = new_function_name
         if 'calls' in data[new_function_name]:
             for i, called_function_name in enumerate(data[new_function_name]['calls']):
                 identifier = re.search(r'\((\d+)\)', called_function_name).group(1)
@@ -69,15 +73,15 @@ def main():
     args = parser.parse_args()
 
     data = callgrind_from_file(args.callgrind_file)
-    json_data = json.dumps(data, indent=2)
+    # json_data = json.dumps(data, indent=2)
 
-    identifier_to_fn_map, identifiers_count = check_unique_identifiers_and_map(data)
+    # identifier_to_fn_map, identifiers_count = check_unique_identifiers_and_map(data)
     # for identifier, count in identifiers_count.items():
     #     if count > 1:
     #         print(f'Identifier: {identifier}, Count: {count}, Functions: {identifier_to_fn_map[identifier]}')
 
     # json_data = post_process_callgrind_json(data, identifier_to_fn_map)
-    # json_data = json.dumps(json_data, indent=2)
+    json_data = json.dumps(json_data, indent=2)
 
     with open('output.json', 'w') as json_file:
         json_file.write(json_data)
